@@ -1,0 +1,28 @@
+font-family = Maple Mono NF CN
+font-style = SemiBold
+font-style-italic = SemiBold Italic
+font-style-bold = ExtraBold
+font-style-bold-italic = ExtraBold Italic
+font-size = 15.5
+cursor-style = bar
+adjust-cell-width = -1
+adjust-cell-height = -1
+
+theme = Whimsy
+background-image = ~/term-bg.png
+background-image-opacity = 0.2
+background-image-fit = cover
+selection-background = #711d72
+selection-foreground = #b2b0d6
+
+window-padding-x = 12
+window-padding-y = 14
+window-width = 77
+window-height = 31
+
+window-new-tab-position = end
+quit-after-last-window-closed = true
+
+shell-integration-features = sudo
+
+macos-titlebar-style = tabs
