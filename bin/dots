@@ -1,0 +1,106 @@
+#!/usr/bin/env zsh
+# dots - dotfiles manager
+# メインエントリーポイント
+
+set -e
+
+# スクリプトのディレクトリを取得
+SCRIPT_DIR="${0:A:h}"
+DOTS_DIR="${DOTS_DIR:-${SCRIPT_DIR:h}}"
+
+# ユーティリティを読み込み
+source "${SCRIPT_DIR}/utils.zsh"
+
+# バージョン表示
+show_version() {
+    echo "dots version ${DOTS_VERSION}"
+}
+
+# ヘルプ表示
+show_help() {
+    cat << 'EOF'
+dots - dotfiles manager
+
+Usage: dots <command> [options]
+
+Commands:
+  init                          Initialize dots.conf
+  deploy                        Deploy dotfiles as symlinks
+  join <name> <path>            Add a file to management
+  leave <name> <file>           Remove a file from management
+  list                          List managed dotfiles
+  status                        Check symlink status
+  rename <name> <old> <new>     Rename a managed file
+
+Options:
+  -h, --help        Show this help message
+  -v, --version     Show version
+
+Run 'dots <command> --help' for more information on a command.
+EOF
+}
+
+# サブコマンドのヘルプを表示
+show_subcommand_help() {
+    local command="$1"
+    local module="${SCRIPT_DIR}/${command}.zsh"
+    
+    if [[ -f "$module" ]]; then
+        source "$module"
+        if type "show_${command}_help" &>/dev/null; then
+            "show_${command}_help"
+            return 0
+        fi
+    fi
+    
+    dots_error "No help available for '${command}'"
+    return 1
+}
+
+# メイン処理
+main() {
+    # 引数がない場合はヘルプを表示
+    if [[ $# -eq 0 ]]; then
+        show_help
+        exit 0
+    fi
+    
+    local command="$1"
+    shift
+    
+    case "$command" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -v|--version)
+            show_version
+            exit 0
+            ;;
+        init|deploy|join|leave|list|status|rename)
+            # --help オプションの確認
+            if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+                show_subcommand_help "$command"
+                exit 0
+            fi
+            
+            # モジュールを読み込んで実行
+            local module="${SCRIPT_DIR}/${command}.zsh"
+            if [[ -f "$module" ]]; then
+                source "$module"
+                "cmd_${command}" "$@"
+            else
+                dots_error "Module not found: ${module}"
+                exit 1
+            fi
+            ;;
+        *)
+            dots_error "Unknown command: ${command}"
+            echo ""
+            show_help
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"
