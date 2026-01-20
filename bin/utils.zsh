@@ -69,8 +69,9 @@ expand_path() {
     local path="$1"
     # ~ をホームディレクトリに展開
     path="${path/#\~/$HOME}"
-    # 環境変数を展開
-    eval echo "$path"
+    # 環境変数を展開（グロブ展開を無効化し、スペースを保持）
+    setopt local_options noglob
+    eval "print -r -- \"$path\""
 }
 
 # パスを正規化（表示用）
