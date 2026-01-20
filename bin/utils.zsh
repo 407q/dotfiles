@@ -73,9 +73,15 @@ expand_path() {
     eval echo "$path"
 }
 
-# パスを ~ 表記に短縮（表示用）
+# パスを正規化（表示用）
+# ホームディレクトリ以下は ~/... 形式、それ以外は絶対パス
 shorten_path() {
     local path="$1"
+    # 絶対パスに変換
+    if [[ "$path" != /* ]]; then
+        path="${path:A}"
+    fi
+    # ホームディレクトリ以下なら ~ 表記に置き換え
     echo "${path/#$HOME/~}"
 }
 
