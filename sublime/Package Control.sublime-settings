@@ -1,0 +1,12 @@
+{
+	"install_missing": true,
+	"installed_packages":
+	[
+		"ayu",
+		"Emmet",
+		"Package Control",
+		"rainbow_csv",
+		"Terminus",
+		"Vue",
+	]
+}

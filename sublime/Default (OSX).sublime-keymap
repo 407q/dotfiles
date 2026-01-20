@@ -1,0 +1,4 @@
+[
+  {"keys":["super+j"],"command":"toggle_terminus_panel"},
+  {"keys":["alt+w"],"command":"emmet_wrap_with_abbreviation"}
+]
