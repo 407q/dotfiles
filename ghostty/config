@@ -8,6 +8,8 @@ cursor-style = bar
 adjust-cell-width = -1
 adjust-cell-height = -1
 
+keybind = alt+¥=text:\\
+
 theme = Whimsy
 background-image = ~/term-bg.png
 background-image-opacity = 0.2
