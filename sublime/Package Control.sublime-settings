@@ -4,9 +4,16 @@
 	[
 		"ayu",
 		"Emmet",
+		"LSP",
+		"LSP-json",
+		"LSP-typescript",
+		"LSP-vue",
 		"Package Control",
 		"rainbow_csv",
 		"Terminus",
 		"Vue",
-	]
+	],
+	"in_process_packages":
+	[
+	],
 }
