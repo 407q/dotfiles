@@ -16,9 +16,10 @@ Description:
   to the corresponding files in the dotfiles repository.
 
   When a target file already exists, you will be prompted to:
-    [o] Overwrite - Delete existing and create link
-    [s] Skip      - Skip this file
-    [b] Backup    - Backup existing file before creating link
+    [1] Backup target and overwrite with repository file (default)
+    [2] Overwrite target with repository file
+    [3] Overwrite repository file with current target
+    [4] Skip this file
 EOF
 }
 
@@ -54,6 +55,13 @@ cmd_deploy() {
             error_count=$((error_count + 1))
             continue
         fi
+
+        # ターゲットがリポジトリファイルそのものを指す場合は、そのまま管理対象として扱う
+        if [[ "${expanded_target:A}" == "${repo_file:A}" ]]; then
+            dots_success "${section}/${filename} -> $(shorten_path "$expanded_target") (managed in repository path)"
+            success_count=$((success_count + 1))
+            continue
+        fi
         
         # ターゲットの親ディレクトリを作成
         local target_dir="${expanded_target:h}"
@@ -82,23 +90,44 @@ cmd_deploy() {
                     rm -rf "$expanded_target"
                     dots_delete "Removed: $(shorten_path "$expanded_target")"
                     ;;
+                overwrite_repo)
+                    rm -rf "$repo_file"
+                    if cp -RL "$expanded_target" "$repo_file"; then
+                        dots_edit "Updated repository file: ${section}/${filename} from $(shorten_path "$expanded_target")"
+                        rm -rf "$expanded_target"
+                        dots_delete "Removed: $(shorten_path "$expanded_target")"
+                    else
+                        dots_error "Failed to update repository file from: $(shorten_path "$expanded_target")"
+                        error_count=$((error_count + 1))
+                        continue
+                    fi
+                    ;;
                 skip)
                     dots_warning "Skipped: ${section}/${filename}"
                     skip_count=$((skip_count + 1))
                     continue
                     ;;
-                backup)
+                backup_overwrite)
                     local backup_name=$(generate_backup_name "$expanded_target")
                     mv "$expanded_target" "$backup_name"
                     dots_backup "Backup created: $(shorten_path "$backup_name")"
+                    ;;
+                *)
+                    dots_error "Invalid conflict choice for: $(shorten_path "$expanded_target")"
+                    error_count=$((error_count + 1))
+                    continue
                     ;;
             esac
         fi
         
         # シンボリックリンクを作成
-        ln -s "$repo_file" "$expanded_target"
-        dots_link "Created symlink: $(shorten_path "$expanded_target") -> ${section}/${filename}"
-        success_count=$((success_count + 1))
+        if ln -s "$repo_file" "$expanded_target"; then
+            dots_link "Created symlink: $(shorten_path "$expanded_target") -> ${section}/${filename}"
+            success_count=$((success_count + 1))
+        else
+            dots_error "Failed to create symlink: $(shorten_path "$expanded_target")"
+            error_count=$((error_count + 1))
+        fi
     done
     
     echo ""

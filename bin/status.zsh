@@ -50,7 +50,12 @@ cmd_status() {
                 local status_icon=""
                 local status_msg=""
                 
-                if [[ -L "$expanded_target" ]]; then
+                if [[ "${expanded_target:A}" == "${repo_file:A}" ]]; then
+                    # ターゲットがリポジトリファイルと同一パス
+                    status_icon="✅"
+                    status_msg=" (managed in repository path)"
+                    ok_count=$((ok_count + 1))
+                elif [[ -L "$expanded_target" ]]; then
                     # シンボリックリンクが存在
                     local link_target=$(readlink "$expanded_target")
                     

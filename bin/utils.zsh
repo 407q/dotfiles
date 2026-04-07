@@ -396,35 +396,39 @@ confirm() {
     [[ "$response" =~ ^[Yy]$ ]]
 }
 
-# 3択プロンプト（Overwrite/Skip/Backup）
+# 4択プロンプト（Backup+Overwrite/Overwrite/OverwriteRepo/Skip）
 prompt_conflict() {
     local existing_file="$1"
     local repo_file="$2"
     local response
     
-    echo ""
-    echo "${EMOJI_WARNING} File already exists: $(shorten_path "$existing_file")"
-    echo ""
+    echo "" >&2
+    echo "${EMOJI_WARNING} File already exists: $(shorten_path "$existing_file")" >&2
+    echo "" >&2
     
-    preview_file "$existing_file" "Existing file content"
-    echo ""
-    preview_file "$repo_file" "Repository file content"
-    echo ""
+    preview_file "$existing_file" "Existing file content" >&2
+    echo "" >&2
+    preview_file "$repo_file" "Repository file content" >&2
+    echo "" >&2
     
-    echo "[o] Overwrite  - Delete existing and create link"
-    echo "[s] Skip       - Skip this file"
-    echo "[b] Backup     - Backup existing to ${existing_file}.bak.YYMMDD_HHMMSS"
-    echo ""
+    echo "[1] Backup target and overwrite with repository file (default)" >&2
+    echo "[2] Overwrite target with repository file" >&2
+    echo "[3] Overwrite repository file with current target" >&2
+    echo "[4] Skip this file" >&2
+    echo "    Backup path: ${existing_file}.bak.YYMMDD_HHMMSS" >&2
+    echo "" >&2
     
     while true; do
-        echo -n "Choice [o/s/b]: "
+        echo -n "Choice [1/2/3/4] (default: 1): " >&2
         read -r response
+        [[ -z "$response" ]] && response="1"
         
         case "$response" in
-            o|O) echo "overwrite"; return ;;
-            s|S) echo "skip"; return ;;
-            b|B) echo "backup"; return ;;
-            *) echo "Invalid choice. Please enter o, s, or b." ;;
+            1|b|B) echo "backup_overwrite"; return ;;
+            2|o|O) echo "overwrite"; return ;;
+            3|r|R) echo "overwrite_repo"; return ;;
+            4|s|S) echo "skip"; return ;;
+            *) echo "Invalid choice. Please enter 1, 2, 3, or 4." >&2 ;;
         esac
     done
 }
