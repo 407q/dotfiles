@@ -5,24 +5,6 @@
             "complex_modifications": {
                 "rules": [
                     {
-                        "description": "Zoom JIS",
-                        "manipulators": [
-                            {
-                                "from": {
-                                    "key_code": "equal_sign",
-                                    "modifiers": { "mandatory": ["command", "option"] }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "equal_sign",
-                                        "modifiers": ["left_command", "left_option"]
-                                    }
-                                ],
-                                "type": "basic"
-                            }
-                        ]
-                    },
-                    {
                         "description": "Caps Lock → Hyper Key (⌃⌥⌘) (Caps Lock if alone)",
                         "manipulators": [
                             {
