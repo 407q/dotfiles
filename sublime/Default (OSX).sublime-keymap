@@ -1,4 +1,9 @@
 [
   {"keys":["super+j"],"command":"toggle_terminus_panel"},
-  {"keys":["alt+w"],"command":"emmet_wrap_with_abbreviation"}
+  {"keys":["alt+w"],"command":"emmet_wrap_with_abbreviation"},
+  {"keys":["alt+tab"],"command":"copilot_accept_completion"},
+  {"keys":["alt+shift+tab"],"command":"copilot_cycle_completions","args":{"forward":false}},
+  {"keys":["alt+enter"],"command":"copilot_open_panel"},
+  {"keys":["alt+shift+enter"],"command":"copilot_dismiss"},
+  {"keys":["alt+shift+c"],"command":"copilot_clear_cache"}
 ]
