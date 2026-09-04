@@ -13,7 +13,6 @@ path+=(
 )
 export HOMEBREW_NO_AUTO_UPDATE=1
 export DOTS_DIR=~/dotfiles
-export NODE_PATH="${HOME}/.config/yarn/global:/opt/homebrew/lib/node_modules"
 
 alias removegomi="find . \( -name '.DS_Store' -or -name '._*' \) -delete -print"
 alias ls="eza --icons --hyperlink -T -L=2"
