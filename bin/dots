@@ -2,8 +2,6 @@
 # dots - dotfiles manager
 # メインエントリーポイント
 
-set -e
-
 # スクリプトのディレクトリを取得
 SCRIPT_DIR="${0:A:h}"
 DOTS_DIR="${DOTS_DIR:-${SCRIPT_DIR:h}}"

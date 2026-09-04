@@ -2,9 +2,6 @@
 # dots - utils.zsh
 # 共通ユーティリティ関数
 
-# バージョン
-DOTS_VERSION="260116"
-
 # Emoji定義
 EMOJI_SUCCESS="✅"
 EMOJI_ERROR="❌"
@@ -23,6 +20,13 @@ fi
 
 # 設定ファイルのパス
 DOTS_CONFIG="${DOTS_CONFIG:-$DOTS_DIR/dots.conf}"
+
+# バージョン（git の短縮ハッシュから導出。取得できない場合は unknown）
+if DOTS_VERSION="$(git -C "$DOTS_DIR" rev-parse --short HEAD 2>/dev/null)"; then
+    :
+else
+    DOTS_VERSION="unknown"
+fi
 
 # --- メッセージ出力関数 ---
 
@@ -64,14 +68,15 @@ dots_delete() {
 
 # --- パス展開関数 ---
 
-# ~ と環境変数を展開
+# ~ と $HOME を展開
+# eval は使わない（ターゲットパスにコマンド置換が紛れ込んでいても実行させないため）
 expand_path() {
     local path="$1"
     # ~ をホームディレクトリに展開
     path="${path/#\~/$HOME}"
-    # 環境変数を展開（グロブ展開を無効化し、スペースを保持）
-    setopt local_options noglob
-    eval "print -r -- \"$path\""
+    # $HOME を展開
+    path="${path//\$HOME/$HOME}"
+    print -r -- "$path"
 }
 
 # パスを正規化（表示用）
@@ -124,7 +129,7 @@ parse_config() {
             current_section="${line#\[}"
             current_section="${current_section%\]}"
             # セクションが未登録なら追加
-            if [[ ! " ${DOTS_SECTIONS[*]} " =~ " ${current_section} " ]]; then
+            if (( ${DOTS_SECTIONS[(Ie)$current_section]} == 0 )); then
                 DOTS_SECTIONS+=("$current_section")
             fi
             continue
@@ -150,24 +155,10 @@ parse_config() {
     return 0
 }
 
-# 特定セクションのエントリを取得
-get_section_entries() {
-    local section="$1"
-    local entries=()
-    
-    for entry in "${DOTS_ENTRIES[@]}"; do
-        if [[ "$entry" == "${section}|"* ]]; then
-            entries+=("$entry")
-        fi
-    done
-    
-    echo "${entries[@]}"
-}
-
 # エントリからファイル名を取得
 get_entry_filename() {
     local entry="$1"
-    echo "${entry#*|}" | cut -d'|' -f1
+    echo "${${entry#*|}%%|*}"
 }
 
 # エントリからターゲットパスを取得
@@ -192,36 +183,44 @@ add_config_entry() {
     
     # セクションが存在するか確認
     if grep -q "^\[${section}\]" "$DOTS_CONFIG" 2>/dev/null; then
-        # セクション内の最後に追加
-        # 次のセクションまたはファイル末尾を探す
-        local temp_file=$(mktemp)
+        # 1周目: セクション内で最後に見た「= を含む行」の行番号を求める
+        # （セクション内にエントリが無ければセクションヘッダ行の直後に挿入する）
         local in_section=0
-        local added=0
-        
+        local line_no=0
+        local insert_after=0
+
         while IFS= read -r line || [[ -n "$line" ]]; do
+            line_no=$((line_no + 1))
+
             if [[ "$line" == \[${section}\] ]]; then
                 in_section=1
-                echo "$line" >> "$temp_file"
+                insert_after=$line_no
                 continue
             fi
-            
+
             if [[ $in_section -eq 1 && "$line" == \[*\] ]]; then
-                # 次のセクションに到達、その前にエントリを追加
-                if [[ $added -eq 0 ]]; then
-                    echo "${filename} = ${target}" >> "$temp_file"
-                    added=1
-                fi
                 in_section=0
+                continue
             fi
-            
-            echo "$line" >> "$temp_file"
+
+            if [[ $in_section -eq 1 && "$line" == *=* ]]; then
+                insert_after=$line_no
+            fi
         done < "$DOTS_CONFIG"
-        
-        # ファイル末尾で追加されていない場合
-        if [[ $added -eq 0 ]]; then
-            echo "${filename} = ${target}" >> "$temp_file"
-        fi
-        
+
+        # 2周目: insert_after 行の直後にエントリを挿入
+        local temp_file=$(mktemp)
+        line_no=0
+
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            line_no=$((line_no + 1))
+            echo "$line" >> "$temp_file"
+
+            if [[ $line_no -eq $insert_after ]]; then
+                echo "${filename} = ${target}" >> "$temp_file"
+            fi
+        done < "$DOTS_CONFIG"
+
         mv "$temp_file" "$DOTS_CONFIG"
     else
         # 新しいセクションを追加

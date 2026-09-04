@@ -75,7 +75,7 @@ cmd_deploy() {
             # 既に正しいシンボリックリンクの場合はスキップ
             if [[ -L "$expanded_target" ]]; then
                 local current_link=$(readlink "$expanded_target")
-                if [[ "$current_link" == "$repo_file" ]]; then
+                if [[ "${current_link:A}" == "${repo_file:A}" ]]; then
                     dots_success "${section}/${filename} -> $(shorten_path "$expanded_target") (already linked)"
                     success_count=$((success_count + 1))
                     continue
@@ -91,12 +91,15 @@ cmd_deploy() {
                     dots_delete "Removed: $(shorten_path "$expanded_target")"
                     ;;
                 overwrite_repo)
-                    rm -rf "$repo_file"
-                    if cp -RL "$expanded_target" "$repo_file"; then
+                    local tmp_repo_file="${repo_file}.tmp.$$"
+                    if cp -RL "$expanded_target" "$tmp_repo_file"; then
+                        rm -rf "$repo_file"
+                        mv "$tmp_repo_file" "$repo_file"
                         dots_edit "Updated repository file: ${section}/${filename} from $(shorten_path "$expanded_target")"
                         rm -rf "$expanded_target"
                         dots_delete "Removed: $(shorten_path "$expanded_target")"
                     else
+                        rm -rf "$tmp_repo_file"
                         dots_error "Failed to update repository file from: $(shorten_path "$expanded_target")"
                         error_count=$((error_count + 1))
                         continue

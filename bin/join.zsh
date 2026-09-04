@@ -115,9 +115,14 @@ cmd_join() {
     fi
     
     # ファイルをリポジトリにコピー
-    cp -R "$expanded_source" "$dest_file"
-    dots_success "Copied: $(shorten_path "$expanded_source") -> ${group_name}/${filename}"
-    
+    if cp -R "$expanded_source" "$dest_file"; then
+        dots_success "Copied: $(shorten_path "$expanded_source") -> ${group_name}/${filename}"
+    else
+        dots_error "Failed to copy: $(shorten_path "$expanded_source") -> ${group_name}/${filename}"
+        rm -rf "$dest_file"
+        return 3
+    fi
+
     # 元ファイルを削除してシンボリックリンクを作成
     rm -rf "$expanded_source"
     ln -s "$dest_file" "$expanded_source"
