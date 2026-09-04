@@ -11,6 +11,7 @@ path+=(
   ~/dotfiles/bin
   /opt/homebrew/sbin
 )
+export EDITOR=nano
 export HOMEBREW_NO_AUTO_UPDATE=1
 export DOTS_DIR=~/dotfiles
 
