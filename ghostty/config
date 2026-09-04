@@ -17,12 +17,15 @@ selection-foreground = #b2b0d6
 
 window-padding-x = 12
 window-padding-y = 14
-window-width = 77
-window-height = 31
+window-width = 80
+window-height = 32
 
 window-new-tab-position = end
 quit-after-last-window-closed = true
 
-shell-integration-features = sudo
+clipboard-read = allow
+clipboard-write = allow
+
+shell-integration-features = sudo,ssh-terminfo
 
 macos-titlebar-style = tabs
