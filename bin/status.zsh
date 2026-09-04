@@ -44,13 +44,38 @@ cmd_status() {
             if [[ "$entry_section" == "$section" ]]; then
                 local filename=$(get_entry_filename "$entry")
                 local target=$(get_entry_target "$entry")
+                local mode=$(get_entry_mode "$entry")
                 local expanded_target=$(expand_path "$target")
                 local repo_file="${DOTS_DIR}/${section}/${filename}"
-                
+
                 local status_icon=""
                 local status_msg=""
-                
-                if [[ "${expanded_target:A}" == "${repo_file:A}" ]]; then
+
+                if [[ ! -e "$repo_file" ]]; then
+                    # リポジトリ内のファイルが存在しない
+                    status_icon="❌"
+                    status_msg=" (source missing: ${section}/${filename})"
+                    missing_count=$((missing_count + 1))
+                elif [[ "$mode" == "copy" ]]; then
+                    # copy 運用: symlink ではなく、内容が一致しているかで判定する
+                    if [[ ! -e "$expanded_target" ]]; then
+                        status_icon="❌"
+                        status_msg=" (missing copy)"
+                        missing_count=$((missing_count + 1))
+                    elif [[ -L "$expanded_target" ]]; then
+                        status_icon="⚠️"
+                        status_msg=" (expected a regular file, found a symlink)"
+                        conflict_count=$((conflict_count + 1))
+                    elif cmp -s "$expanded_target" "$repo_file" 2>/dev/null; then
+                        status_icon="✅"
+                        status_msg=" (in sync, copy mode)"
+                        ok_count=$((ok_count + 1))
+                    else
+                        status_icon="⚠️"
+                        status_msg=" (out of sync, run 'dots pull ${section} ${filename}')"
+                        conflict_count=$((conflict_count + 1))
+                    fi
+                elif [[ "${expanded_target:A}" == "${repo_file:A}" ]]; then
                     # ターゲットがリポジトリファイルと同一パス
                     status_icon="✅"
                     status_msg=" (managed in repository path)"
@@ -58,8 +83,8 @@ cmd_status() {
                 elif [[ -L "$expanded_target" ]]; then
                     # シンボリックリンクが存在
                     local link_target=$(readlink "$expanded_target")
-                    
-                    if [[ "$link_target" == "$repo_file" ]]; then
+
+                    if [[ "${link_target:A}" == "${repo_file:A}" ]]; then
                         # 正しくリンクされている
                         status_icon="✅"
                         ok_count=$((ok_count + 1))
@@ -85,14 +110,7 @@ cmd_status() {
                     status_msg=" (missing link)"
                     missing_count=$((missing_count + 1))
                 fi
-                
-                # リポジトリ内のファイルも確認
-                if [[ ! -e "$repo_file" ]]; then
-                    status_icon="❌"
-                    status_msg=" (source missing: ${section}/${filename})"
-                    missing_count=$((missing_count + 1))
-                fi
-                
+
                 echo "  ${status_icon} ${filename} -> ${target}${status_msg}"
             fi
         done

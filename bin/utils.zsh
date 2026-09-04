@@ -2,9 +2,6 @@
 # dots - utils.zsh
 # 共通ユーティリティ関数
 
-# バージョン
-DOTS_VERSION="260116"
-
 # Emoji定義
 EMOJI_SUCCESS="✅"
 EMOJI_ERROR="❌"
@@ -23,6 +20,13 @@ fi
 
 # 設定ファイルのパス
 DOTS_CONFIG="${DOTS_CONFIG:-$DOTS_DIR/dots.conf}"
+
+# バージョン（git の短縮ハッシュから導出。取得できない場合は unknown）
+if DOTS_VERSION="$(git -C "$DOTS_DIR" rev-parse --short HEAD 2>/dev/null)"; then
+    :
+else
+    DOTS_VERSION="unknown"
+fi
 
 # --- メッセージ出力関数 ---
 
@@ -64,14 +68,15 @@ dots_delete() {
 
 # --- パス展開関数 ---
 
-# ~ と環境変数を展開
+# ~ と $HOME を展開
+# eval は使わない（ターゲットパスにコマンド置換が紛れ込んでいても実行させないため）
 expand_path() {
     local path="$1"
     # ~ をホームディレクトリに展開
     path="${path/#\~/$HOME}"
-    # 環境変数を展開（グロブ展開を無効化し、スペースを保持）
-    setopt local_options noglob
-    eval "print -r -- \"$path\""
+    # $HOME を展開
+    path="${path//\$HOME/$HOME}"
+    print -r -- "$path"
 }
 
 # パスを正規化（表示用）
@@ -101,79 +106,81 @@ check_config_exists() {
 # dots.conf を解析して配列に格納
 # 使用法: parse_config を呼び出すと、以下のグローバル配列が設定される
 #   DOTS_SECTIONS: セクション名の配列
-#   DOTS_ENTRIES: "section|filename|target" 形式のエントリ配列
+#   DOTS_ENTRIES: "section|filename|target|mode" 形式のエントリ配列
+#
+# エントリ行は "filename = target" のほか、末尾に " ; mode=copy" のように
+# セミコロン区切りでオプションを追加できる（省略時は mode=symlink）。
 parse_config() {
     check_config_exists || return 1
-    
+
     DOTS_SECTIONS=()
     DOTS_ENTRIES=()
-    
+
     local current_section=""
-    
+
     while IFS= read -r line || [[ -n "$line" ]]; do
         # 空行とコメントをスキップ
         [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-        
+
         # 前後の空白を除去
         line="${line#"${line%%[![:space:]]*}"}"
         line="${line%"${line##*[![:space:]]}"}"
-        
+
         # セクションヘッダー [name]
         if [[ "$line" == \[*\] ]]; then
             # [ と ] を除去してセクション名を取得
             current_section="${line#\[}"
             current_section="${current_section%\]}"
             # セクションが未登録なら追加
-            if [[ ! " ${DOTS_SECTIONS[*]} " =~ " ${current_section} " ]]; then
+            if (( ${DOTS_SECTIONS[(Ie)$current_section]} == 0 )); then
                 DOTS_SECTIONS+=("$current_section")
             fi
             continue
         fi
-        
-        # エントリ: filename = target
+
+        # エントリ: filename = target [; key=value ...]
         if [[ "$line" == *=* ]]; then
             local filename="${line%%=*}"
-            local target="${line#*=}"
-            
+            local rest="${line#*=}"
+            local target="$rest"
+            local mode="symlink"
+
+            # ; 以降はオプション（現状 mode=copy のみサポート）
+            if [[ "$rest" == *\;* ]]; then
+                target="${rest%%;*}"
+                local options="${rest#*;}"
+                local opt
+                for opt in ${(s: :)options}; do
+                    [[ "$opt" == mode=* ]] && mode="${opt#mode=}"
+                done
+            fi
+
             # 前後の空白を除去
             filename="${filename#"${filename%%[![:space:]]*}"}"
             filename="${filename%"${filename##*[![:space:]]}"}"
             target="${target#"${target%%[![:space:]]*}"}"
             target="${target%"${target##*[![:space:]]}"}"
-            
+
             if [[ -n "$current_section" ]]; then
-                DOTS_ENTRIES+=("${current_section}|${filename}|${target}")
+                DOTS_ENTRIES+=("${current_section}|${filename}|${target}|${mode}")
             fi
         fi
     done < "$DOTS_CONFIG"
-    
-    return 0
-}
 
-# 特定セクションのエントリを取得
-get_section_entries() {
-    local section="$1"
-    local entries=()
-    
-    for entry in "${DOTS_ENTRIES[@]}"; do
-        if [[ "$entry" == "${section}|"* ]]; then
-            entries+=("$entry")
-        fi
-    done
-    
-    echo "${entries[@]}"
+    return 0
 }
 
 # エントリからファイル名を取得
 get_entry_filename() {
     local entry="$1"
-    echo "${entry#*|}" | cut -d'|' -f1
+    echo "${${entry#*|}%%|*}"
 }
 
 # エントリからターゲットパスを取得
 get_entry_target() {
     local entry="$1"
-    echo "${entry##*|}"
+    local rest="${entry#*|*|}"
+    echo "${rest%%|*}"
 }
 
 # エントリからセクション名を取得
@@ -182,52 +189,72 @@ get_entry_section() {
     echo "${entry%%|*}"
 }
 
+# エントリから mode を取得（symlink または copy）
+get_entry_mode() {
+    local entry="$1"
+    echo "${entry##*|}"
+}
+
 # --- 設定ファイル書き込み ---
 
 # エントリを追加
+# mode を省略、または "symlink" を渡した場合は従来通り "filename = target" の形式で追加する。
+# "copy" を渡すと "filename = target ; mode=copy" の形式で追加する。
 add_config_entry() {
     local section="$1"
     local filename="$2"
     local target="$3"
-    
+    local mode="${4:-symlink}"
+
+    local entry_line="${filename} = ${target}"
+    [[ "$mode" != "symlink" ]] && entry_line="${entry_line} ; mode=${mode}"
+
     # セクションが存在するか確認
     if grep -q "^\[${section}\]" "$DOTS_CONFIG" 2>/dev/null; then
-        # セクション内の最後に追加
-        # 次のセクションまたはファイル末尾を探す
-        local temp_file=$(mktemp)
+        # 1周目: セクション内で最後に見た「= を含む行」の行番号を求める
+        # （セクション内にエントリが無ければセクションヘッダ行の直後に挿入する）
         local in_section=0
-        local added=0
-        
+        local line_no=0
+        local insert_after=0
+
         while IFS= read -r line || [[ -n "$line" ]]; do
+            line_no=$((line_no + 1))
+
             if [[ "$line" == \[${section}\] ]]; then
                 in_section=1
-                echo "$line" >> "$temp_file"
+                insert_after=$line_no
                 continue
             fi
-            
+
             if [[ $in_section -eq 1 && "$line" == \[*\] ]]; then
-                # 次のセクションに到達、その前にエントリを追加
-                if [[ $added -eq 0 ]]; then
-                    echo "${filename} = ${target}" >> "$temp_file"
-                    added=1
-                fi
                 in_section=0
+                continue
             fi
-            
-            echo "$line" >> "$temp_file"
+
+            if [[ $in_section -eq 1 && "$line" == *=* ]]; then
+                insert_after=$line_no
+            fi
         done < "$DOTS_CONFIG"
-        
-        # ファイル末尾で追加されていない場合
-        if [[ $added -eq 0 ]]; then
-            echo "${filename} = ${target}" >> "$temp_file"
-        fi
-        
+
+        # 2周目: insert_after 行の直後にエントリを挿入
+        local temp_file=$(mktemp)
+        line_no=0
+
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            line_no=$((line_no + 1))
+            echo "$line" >> "$temp_file"
+
+            if [[ $line_no -eq $insert_after ]]; then
+                echo "$entry_line" >> "$temp_file"
+            fi
+        done < "$DOTS_CONFIG"
+
         mv "$temp_file" "$DOTS_CONFIG"
     else
         # 新しいセクションを追加
         echo "" >> "$DOTS_CONFIG"
         echo "[${section}]" >> "$DOTS_CONFIG"
-        echo "${filename} = ${target}" >> "$DOTS_CONFIG"
+        echo "$entry_line" >> "$DOTS_CONFIG"
     fi
 }
 
@@ -431,4 +458,21 @@ prompt_conflict() {
             *) echo "Invalid choice. Please enter 1, 2, 3, or 4." >&2 ;;
         esac
     done
+}
+
+# dots pull 用の確認プロンプト（内容差分のプレビュー + y/n）
+prompt_pull_confirm() {
+    local target_file="$1"
+    local repo_file="$2"
+
+    echo "" >&2
+    echo "${EMOJI_WARNING} Repository file differs from target." >&2
+    echo "" >&2
+
+    preview_file "$repo_file" "Repository file content (current)" >&2
+    echo "" >&2
+    preview_file "$target_file" "Target file content (will be pulled in)" >&2
+    echo "" >&2
+
+    confirm "Overwrite repository file with target content?"
 }

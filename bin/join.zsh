@@ -14,15 +14,21 @@ Arguments:
 
 Options:
   -f, --filename <name>   Specify filename in repository
+  -m, --mode <mode>       symlink (default) or copy
   -h, --help              Show this help message
 
 Description:
   Copies the specified file to the dotfiles repository under the
   given group directory, then replaces the original with a symlink.
 
+  With --mode copy, the original file is left in place (not replaced
+  with a symlink); use this for apps that rewrite their config file
+  in place, and sync changes back with 'dots pull'.
+
 Examples:
   dots join zsh ~/.zshrc
   dots join zsh ~/.zshrc --filename .zshrc_custom
+  dots join karabiner ~/.config/karabiner/karabiner.json --mode copy
 EOF
 }
 
@@ -30,7 +36,8 @@ cmd_join() {
     local group_name=""
     local source_path=""
     local custom_filename=""
-    
+    local mode="symlink"
+
     # 引数解析
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -40,6 +47,14 @@ cmd_join() {
                     return 2
                 fi
                 custom_filename="$2"
+                shift 2
+                ;;
+            -m|--mode)
+                if [[ "$2" != "symlink" && "$2" != "copy" ]]; then
+                    dots_error "Option --mode must be 'symlink' or 'copy'."
+                    return 2
+                fi
+                mode="$2"
                 shift 2
                 ;;
             -*)
@@ -115,16 +130,26 @@ cmd_join() {
     fi
     
     # ファイルをリポジトリにコピー
-    cp -R "$expanded_source" "$dest_file"
-    dots_success "Copied: $(shorten_path "$expanded_source") -> ${group_name}/${filename}"
-    
-    # 元ファイルを削除してシンボリックリンクを作成
-    rm -rf "$expanded_source"
-    ln -s "$dest_file" "$expanded_source"
-    dots_link "Created symlink: $(shorten_path "$expanded_source") -> ${group_name}/${filename}"
-    
+    if cp -R "$expanded_source" "$dest_file"; then
+        dots_success "Copied: $(shorten_path "$expanded_source") -> ${group_name}/${filename}"
+    else
+        dots_error "Failed to copy: $(shorten_path "$expanded_source") -> ${group_name}/${filename}"
+        rm -rf "$dest_file"
+        return 3
+    fi
+
+    if [[ "$mode" == "copy" ]]; then
+        # copy 運用: 元ファイルはそのまま残す（symlink を作らない）
+        dots_info "Left in place (copy mode): $(shorten_path "$expanded_source")"
+    else
+        # 元ファイルを削除してシンボリックリンクを作成
+        rm -rf "$expanded_source"
+        ln -s "$dest_file" "$expanded_source"
+        dots_link "Created symlink: $(shorten_path "$expanded_source") -> ${group_name}/${filename}"
+    fi
+
     # 設定ファイルにエントリを追加
-    add_config_entry "$group_name" "$filename" "$(shorten_path "$expanded_source")"
+    add_config_entry "$group_name" "$filename" "$(shorten_path "$expanded_source")" "$mode"
     dots_edit "Updated config: [${group_name}] ${filename} = $(shorten_path "$expanded_source")"
     
     dots_success "File added to management!"

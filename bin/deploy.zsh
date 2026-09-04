@@ -15,6 +15,9 @@ Description:
   Reads dots.conf and creates symbolic links from target locations
   to the corresponding files in the dotfiles repository.
 
+  Entries with "mode=copy" are deployed as a plain file copy instead
+  of a symlink (for apps that rewrite their config file in place).
+
   When a target file already exists, you will be prompted to:
     [1] Backup target and overwrite with repository file (default)
     [2] Overwrite target with repository file
@@ -44,7 +47,8 @@ cmd_deploy() {
         local section=$(get_entry_section "$entry")
         local filename=$(get_entry_filename "$entry")
         local target=$(get_entry_target "$entry")
-        
+        local mode=$(get_entry_mode "$entry")
+
         # パスを展開
         local expanded_target=$(expand_path "$target")
         local repo_file="${DOTS_DIR}/${section}/${filename}"
@@ -72,16 +76,23 @@ cmd_deploy() {
         
         # ターゲットが既に存在する場合
         if [[ -e "$expanded_target" || -L "$expanded_target" ]]; then
-            # 既に正しいシンボリックリンクの場合はスキップ
-            if [[ -L "$expanded_target" ]]; then
+            if [[ "$mode" == "copy" ]]; then
+                # copy 運用: symlink ではなく、内容が一致していれば同期済みとしてスキップ
+                if [[ ! -L "$expanded_target" ]] && cmp -s "$expanded_target" "$repo_file" 2>/dev/null; then
+                    dots_success "${section}/${filename} -> $(shorten_path "$expanded_target") (already in sync)"
+                    success_count=$((success_count + 1))
+                    continue
+                fi
+            elif [[ -L "$expanded_target" ]]; then
+                # 既に正しいシンボリックリンクの場合はスキップ
                 local current_link=$(readlink "$expanded_target")
-                if [[ "$current_link" == "$repo_file" ]]; then
+                if [[ "${current_link:A}" == "${repo_file:A}" ]]; then
                     dots_success "${section}/${filename} -> $(shorten_path "$expanded_target") (already linked)"
                     success_count=$((success_count + 1))
                     continue
                 fi
             fi
-            
+
             # 競合処理
             local choice=$(prompt_conflict "$expanded_target" "$repo_file")
             
@@ -91,12 +102,15 @@ cmd_deploy() {
                     dots_delete "Removed: $(shorten_path "$expanded_target")"
                     ;;
                 overwrite_repo)
-                    rm -rf "$repo_file"
-                    if cp -RL "$expanded_target" "$repo_file"; then
+                    local tmp_repo_file="${repo_file}.tmp.$$"
+                    if cp -RL "$expanded_target" "$tmp_repo_file"; then
+                        rm -rf "$repo_file"
+                        mv "$tmp_repo_file" "$repo_file"
                         dots_edit "Updated repository file: ${section}/${filename} from $(shorten_path "$expanded_target")"
                         rm -rf "$expanded_target"
                         dots_delete "Removed: $(shorten_path "$expanded_target")"
                     else
+                        rm -rf "$tmp_repo_file"
                         dots_error "Failed to update repository file from: $(shorten_path "$expanded_target")"
                         error_count=$((error_count + 1))
                         continue
@@ -120,13 +134,23 @@ cmd_deploy() {
             esac
         fi
         
-        # シンボリックリンクを作成
-        if ln -s "$repo_file" "$expanded_target"; then
-            dots_link "Created symlink: $(shorten_path "$expanded_target") -> ${section}/${filename}"
-            success_count=$((success_count + 1))
+        # ターゲットを配置（mode=copy ならコピー、それ以外はシンボリックリンク）
+        if [[ "$mode" == "copy" ]]; then
+            if cp -RL "$repo_file" "$expanded_target"; then
+                dots_success "Copied: ${section}/${filename} -> $(shorten_path "$expanded_target")"
+                success_count=$((success_count + 1))
+            else
+                dots_error "Failed to copy: $(shorten_path "$expanded_target")"
+                error_count=$((error_count + 1))
+            fi
         else
-            dots_error "Failed to create symlink: $(shorten_path "$expanded_target")"
-            error_count=$((error_count + 1))
+            if ln -s "$repo_file" "$expanded_target"; then
+                dots_link "Created symlink: $(shorten_path "$expanded_target") -> ${section}/${filename}"
+                success_count=$((success_count + 1))
+            else
+                dots_error "Failed to create symlink: $(shorten_path "$expanded_target")"
+                error_count=$((error_count + 1))
+            fi
         fi
     done
     
