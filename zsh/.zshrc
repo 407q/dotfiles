@@ -3,7 +3,7 @@
 eval "$(sheldon source)"
 
 alias removegomi="find . \( -name '.DS_Store' -or -name '._*' \) -delete -print"
-alias ls="eza --icons --hyperlink -T -L=2"
+alias ls="eza --icons --hyperlink"
 alias vlc='/Applications/VLC.app/Contents/MacOS/VLC'
 
 autoload -Uz compinit
