@@ -29,6 +29,7 @@ Commands:
   list                          List managed dotfiles
   status                        Check symlink status
   rename <name> <old> <new>     Rename a managed file
+  pull <name> <file>            Sync repository file from target
 
 Options:
   -h, --help        Show this help message
@@ -75,7 +76,7 @@ main() {
             show_version
             exit 0
             ;;
-        init|deploy|join|leave|list|status|rename)
+        init|deploy|join|leave|list|status|rename|pull)
             # --help オプションの確認
             if [[ "$1" == "-h" || "$1" == "--help" ]]; then
                 show_subcommand_help "$command"

@@ -47,6 +47,20 @@ config = ~/.config/ghostty/config
 シンボリックリンクが張られる。実体は常にリポジトリ側にあり、ホーム側は
 リンクのみになる。
 
+### mode=copy（アプリが設定ファイルを書き戻す場合）
+
+Karabiner-Elements のように、アプリ側が設定ファイルを「一時ファイルに
+書いて rename」する実装だと、シンボリックリンクが通常ファイルで置き
+換えられてしまう。こうしたファイルはシンボリックリンクではなく
+コピーで運用したい場合、エントリの末尾に `; mode=copy` を付ける。
+
+```ini
+[karabiner]
+karabiner.json = ~/.config/karabiner/karabiner.json ; mode=copy
+```
+
+`mode` を省略した場合は従来通り `mode=symlink` として扱われる。
+
 ## コマンド
 
 ```
@@ -57,6 +71,7 @@ dots leave <name> <file>           ファイルを管理対象から外し、実
 dots list                          管理中のファイルを一覧表示する
 dots status                        シンボリックリンクの状態を確認する
 dots rename <name> <old> <new>     リポジトリ内のファイル名を変更する
+dots pull <name> <file>            ターゲット側の内容をリポジトリへ取り込み直す
 ```
 
 それぞれ `dots <command> --help` で詳細を確認できる。
@@ -73,11 +88,19 @@ dots join zsh ~/.zshrc
 場所はコピー先へのシンボリックリンクに置き換えたうえで、`dots.conf` に
 エントリを追記する。
 
+`--mode copy` を付けると、元ファイルはそのまま残し（シンボリックリンクに
+置き換えず）、`dots.conf` に `mode=copy` エントリとして追記する。
+
+```sh
+dots join karabiner ~/.config/karabiner/karabiner.json --mode copy
+```
+
 ### dots deploy
 
-`dots.conf` の内容に従って、ホーム側にシンボリックリンクを展開する。
-ターゲットにすでに何かファイルが存在する場合は、次のいずれかを選ぶ
-プロンプトが出る。
+`dots.conf` の内容に従って、ホーム側にシンボリックリンクを展開する
+（`mode=copy` のエントリは、シンボリックリンクではなくファイルコピーで
+配置する）。ターゲットにすでに何かファイルが存在する場合は、次のいずれ
+かを選ぶプロンプトが出る。
 
 ```
 [1] Backup target and overwrite with repository file (default)
@@ -89,7 +112,24 @@ dots join zsh ~/.zshrc
 ### dots status
 
 各エントリについて、正しくリンクされているか（✅）、リンクが欠けて
-いるか（❌）、競合が起きているか（⚠️）を表示する。
+いるか（❌）、競合が起きているか（⚠️）を表示する。`mode=copy` のエント
+リは、シンボリックリンクの有無ではなく、ターゲットとリポジトリファイル
+の内容が一致しているかどうかで判定する。
+
+### dots pull
+
+アプリがシンボリックリンクを通常ファイルに置き換えてしまった場合や、
+`mode=copy` のファイルにアプリが直接書き込んだ場合に、ターゲット側の
+現在の内容をリポジトリへ取り込み直す。
+
+```sh
+dots pull karabiner karabiner.json
+```
+
+リポジトリ側の内容とターゲットの内容がすでに異なる場合は、確認プロン
+プトが出てから上書きする。取り込み後、`mode=symlink`（デフォルト）の
+エントリはシンボリックリンクを再構築し、`mode=copy` のエントリはター
+ゲットをそのまま（通常ファイルのまま）にする。
 
 ## 開発環境
 
@@ -98,8 +138,8 @@ macOS + zsh を主な動作環境として作っている（将来的に Linux �
 ## テスト
 
 `dots.conf` のパース・書き換え処理（`parse_config` / `add_config_entry` /
-`remove_config_entry` / `cleanup_empty_sections`）について、一時ディレクトリ
-を使った回帰テストを用意している。
+`remove_config_entry` / `cleanup_empty_sections`、`mode` 属性を含む）に
+ついて、一時ディレクトリを使った回帰テストを用意している。
 
 ```sh
 zsh tests/run_tests.zsh

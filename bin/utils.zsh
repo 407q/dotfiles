@@ -106,23 +106,26 @@ check_config_exists() {
 # dots.conf を解析して配列に格納
 # 使用法: parse_config を呼び出すと、以下のグローバル配列が設定される
 #   DOTS_SECTIONS: セクション名の配列
-#   DOTS_ENTRIES: "section|filename|target" 形式のエントリ配列
+#   DOTS_ENTRIES: "section|filename|target|mode" 形式のエントリ配列
+#
+# エントリ行は "filename = target" のほか、末尾に " ; mode=copy" のように
+# セミコロン区切りでオプションを追加できる（省略時は mode=symlink）。
 parse_config() {
     check_config_exists || return 1
-    
+
     DOTS_SECTIONS=()
     DOTS_ENTRIES=()
-    
+
     local current_section=""
-    
+
     while IFS= read -r line || [[ -n "$line" ]]; do
         # 空行とコメントをスキップ
         [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-        
+
         # 前後の空白を除去
         line="${line#"${line%%[![:space:]]*}"}"
         line="${line%"${line##*[![:space:]]}"}"
-        
+
         # セクションヘッダー [name]
         if [[ "$line" == \[*\] ]]; then
             # [ と ] を除去してセクション名を取得
@@ -134,24 +137,36 @@ parse_config() {
             fi
             continue
         fi
-        
-        # エントリ: filename = target
+
+        # エントリ: filename = target [; key=value ...]
         if [[ "$line" == *=* ]]; then
             local filename="${line%%=*}"
-            local target="${line#*=}"
-            
+            local rest="${line#*=}"
+            local target="$rest"
+            local mode="symlink"
+
+            # ; 以降はオプション（現状 mode=copy のみサポート）
+            if [[ "$rest" == *\;* ]]; then
+                target="${rest%%;*}"
+                local options="${rest#*;}"
+                local opt
+                for opt in ${(s: :)options}; do
+                    [[ "$opt" == mode=* ]] && mode="${opt#mode=}"
+                done
+            fi
+
             # 前後の空白を除去
             filename="${filename#"${filename%%[![:space:]]*}"}"
             filename="${filename%"${filename##*[![:space:]]}"}"
             target="${target#"${target%%[![:space:]]*}"}"
             target="${target%"${target##*[![:space:]]}"}"
-            
+
             if [[ -n "$current_section" ]]; then
-                DOTS_ENTRIES+=("${current_section}|${filename}|${target}")
+                DOTS_ENTRIES+=("${current_section}|${filename}|${target}|${mode}")
             fi
         fi
     done < "$DOTS_CONFIG"
-    
+
     return 0
 }
 
@@ -164,7 +179,8 @@ get_entry_filename() {
 # エントリからターゲットパスを取得
 get_entry_target() {
     local entry="$1"
-    echo "${entry##*|}"
+    local rest="${entry#*|*|}"
+    echo "${rest%%|*}"
 }
 
 # エントリからセクション名を取得
@@ -173,14 +189,26 @@ get_entry_section() {
     echo "${entry%%|*}"
 }
 
+# エントリから mode を取得（symlink または copy）
+get_entry_mode() {
+    local entry="$1"
+    echo "${entry##*|}"
+}
+
 # --- 設定ファイル書き込み ---
 
 # エントリを追加
+# mode を省略、または "symlink" を渡した場合は従来通り "filename = target" の形式で追加する。
+# "copy" を渡すと "filename = target ; mode=copy" の形式で追加する。
 add_config_entry() {
     local section="$1"
     local filename="$2"
     local target="$3"
-    
+    local mode="${4:-symlink}"
+
+    local entry_line="${filename} = ${target}"
+    [[ "$mode" != "symlink" ]] && entry_line="${entry_line} ; mode=${mode}"
+
     # セクションが存在するか確認
     if grep -q "^\[${section}\]" "$DOTS_CONFIG" 2>/dev/null; then
         # 1周目: セクション内で最後に見た「= を含む行」の行番号を求める
@@ -217,7 +245,7 @@ add_config_entry() {
             echo "$line" >> "$temp_file"
 
             if [[ $line_no -eq $insert_after ]]; then
-                echo "${filename} = ${target}" >> "$temp_file"
+                echo "$entry_line" >> "$temp_file"
             fi
         done < "$DOTS_CONFIG"
 
@@ -226,7 +254,7 @@ add_config_entry() {
         # 新しいセクションを追加
         echo "" >> "$DOTS_CONFIG"
         echo "[${section}]" >> "$DOTS_CONFIG"
-        echo "${filename} = ${target}" >> "$DOTS_CONFIG"
+        echo "$entry_line" >> "$DOTS_CONFIG"
     fi
 }
 
@@ -430,4 +458,21 @@ prompt_conflict() {
             *) echo "Invalid choice. Please enter 1, 2, 3, or 4." >&2 ;;
         esac
     done
+}
+
+# dots pull 用の確認プロンプト（内容差分のプレビュー + y/n）
+prompt_pull_confirm() {
+    local target_file="$1"
+    local repo_file="$2"
+
+    echo "" >&2
+    echo "${EMOJI_WARNING} Repository file differs from target." >&2
+    echo "" >&2
+
+    preview_file "$repo_file" "Repository file content (current)" >&2
+    echo "" >&2
+    preview_file "$target_file" "Target file content (will be pulled in)" >&2
+    echo "" >&2
+
+    confirm "Overwrite repository file with target content?"
 }

@@ -60,6 +60,23 @@ EOF
     assert_eq "$(get_entry_section "${DOTS_ENTRIES[1]}")" "zsh" "parse_config: エントリ1のセクション"
     assert_eq "$(get_entry_filename "${DOTS_ENTRIES[1]}")" ".zshrc" "parse_config: エントリ1のファイル名"
     assert_eq "$(get_entry_target "${DOTS_ENTRIES[1]}")" "~/.zshrc" "parse_config: エントリ1のターゲット"
+    assert_eq "$(get_entry_mode "${DOTS_ENTRIES[1]}")" "symlink" "parse_config: mode 省略時は symlink"
+
+    cleanup_tmp_config
+}
+
+test_parse_config_mode_attribute() {
+    with_tmp_config "$(cat <<'EOF'
+[karabiner]
+karabiner.json = ~/.config/karabiner/karabiner.json ; mode=copy
+EOF
+)"
+
+    parse_config
+    assert_eq "${#DOTS_ENTRIES[@]}" "1" "parse_config: mode 属性付きエントリ数"
+    assert_eq "$(get_entry_filename "${DOTS_ENTRIES[1]}")" "karabiner.json" "parse_config: mode 属性付きファイル名"
+    assert_eq "$(get_entry_target "${DOTS_ENTRIES[1]}")" "~/.config/karabiner/karabiner.json" "parse_config: mode 属性を除いたターゲット"
+    assert_eq "$(get_entry_mode "${DOTS_ENTRIES[1]}")" "copy" "parse_config: mode=copy を認識する"
 
     cleanup_tmp_config
 }
@@ -128,6 +145,27 @@ EOF
 )
 
     assert_eq "$(<"$DOTS_CONFIG")" "$expected" "add_config_entry: 3回連続実行でエントリが連続して並び、空行が増減しない"
+
+    cleanup_tmp_config
+}
+
+test_add_config_entry_with_mode() {
+    with_tmp_config "$(cat <<'EOF'
+[karabiner]
+EOF
+)"
+
+    add_config_entry "karabiner" "karabiner.json" "~/.config/karabiner/karabiner.json" "copy"
+    parse_config
+    assert_eq "$(get_entry_mode "${DOTS_ENTRIES[1]}")" "copy" "add_config_entry: mode=copy を書き込める"
+
+    local expected
+    expected=$(cat <<'EOF'
+[karabiner]
+karabiner.json = ~/.config/karabiner/karabiner.json ; mode=copy
+EOF
+)
+    assert_eq "$(<"$DOTS_CONFIG")" "$expected" "add_config_entry: mode=copy のとき ; mode=copy を追記する"
 
     cleanup_tmp_config
 }
@@ -214,8 +252,10 @@ EOF
 
 test_parse_config_basic
 test_parse_config_ignores_comments_and_blank_lines
+test_parse_config_mode_attribute
 test_add_config_entry_new_section
 test_add_config_entry_appends_after_last_entry
+test_add_config_entry_with_mode
 test_add_config_entry_empty_section
 test_remove_config_entry
 test_remove_config_entry_cleans_up_empty_section
