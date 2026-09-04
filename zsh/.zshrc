@@ -1,18 +1,6 @@
-export LANG=ja_JP.UTF-8
 #zmodload zsh/zprof #debug
 
 eval "$(sheldon source)"
-_evalcache starship init zsh
-
-typeset -gU path PATH
-path+=(
-  ~/.yarn/bin
-  ~/dotfiles/bin
-  /opt/homebrew/sbin
-)
-export EDITOR=nano
-export HOMEBREW_NO_AUTO_UPDATE=1
-export DOTS_DIR=~/dotfiles
 
 alias removegomi="find . \( -name '.DS_Store' -or -name '._*' \) -delete -print"
 alias ls="eza --icons --hyperlink -T -L=2"
@@ -29,5 +17,7 @@ autoload -Uz compinit
   fi
 }
 _evalcache gh completion -s zsh
+
+_evalcache starship init zsh
 
 #zprof #debug
