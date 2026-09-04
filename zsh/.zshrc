@@ -1,8 +1,7 @@
 export LANG=ja_JP.UTF-8
 #zmodload zsh/zprof #debug
 
-source ~/zsh/evalcache.plugin.zsh
-source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+eval "$(sheldon source)"
 _evalcache starship init zsh
 
 typeset -gU path PATH
