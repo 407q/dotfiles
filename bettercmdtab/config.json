@@ -1,0 +1,37 @@
+{
+  "$schema" : "schema.json",
+  "animationsEnabled" : true,
+  "appExceptions" : [
+    {
+      "bundleID" : "com.apple.finder",
+      "hide" : "whenNoWindows",
+      "ignore" : "never"
+    }
+  ],
+  "applicationsOnly" : true,
+  "backtickReversesAppSwitching" : false,
+  "clickOutsideToDismiss" : true,
+  "experimentalInstantSpaceSwitch" : false,
+  "experimentalLivePreviews" : false,
+  "fontFace" : "system",
+  "gridSingleRow" : false,
+  "hapticOnCommit" : false,
+  "hideFromScreenSharing" : true,
+  "hideMenuBarIcon" : true,
+  "instantSpaceSwitch" : false,
+  "layoutMode" : "iconDock",
+  "letterHintsEnabled" : false,
+  "livePreviews" : false,
+  "mouseHoverSelectionEnabled" : false,
+  "nextScopedShortcutID" : 0,
+  "panelCornerRadius" : 0,
+  "panelScalePercent" : 80,
+  "revealDelayMs" : 40,
+  "scopedShortcutList" : [
+
+  ],
+  "scrollToSwitch" : false,
+  "searchDismissMode" : "holdModifier",
+  "searchIncludesLaunchableApps" : false,
+  "showWindowTitleLabel" : false
+}
