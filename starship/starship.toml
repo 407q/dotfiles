@@ -7,6 +7,7 @@ $directory\
 [](fg:#DA627D bg:#FCA17D)\
 $git_branch\
 $git_status\
+$git_state\
 [](fg:#FCA17D bg:#86BBD8)\
 $c\
 $elixir\
@@ -24,7 +25,9 @@ $scala\
 $docker_context\
 [](fg:#06969A bg:#33658A)\
 $time\
-[ ](fg:#33658A)\
+$cmd_duration\
+$status\
+$character\
 """
 
 # Disable the blank line at the start of the prompt
@@ -86,11 +89,11 @@ format = '[ $symbol ($version) ]($style)'
 
 [git_branch]
 symbol = ""
-style = "bg:#FCA17D"
+style = "bg:#FCA17D fg:0"
 format = '[ $symbol $branch ]($style)'
 
 [git_status]
-style = "bg:#FCA17D"
+style = "bg:#FCA17D fg:0"
 format = '[$all_status$ahead_behind ]($style)'
 
 [golang]
@@ -137,8 +140,32 @@ symbol = " "
 style = "bg:#86BBD8 fg:0"
 format = '[ $symbol ($version) ]($style)'
 
+
 [time]
 disabled = false
 time_format = "%R" # Hour:Minute Format
 style = "bg:#33658A"
 format = '[ ♥ $time ]($style)'
+
+
+# User Added Module
+
+[git_state]
+style = "bg:#FCA17D fg:0"
+format = '[ \($state( $progress_current/$progress_total)\) ]($style)'
+
+[cmd_duration]
+min_time = 500
+format = '[ 󱎫 $duration ]($style)'
+style = "bg:#33658A"
+
+[status]
+disabled = false
+format = '[](fg:#33658A bg:#EF6487)[ $symbol$status ]($style)'
+style = "bg:#EF6487 fg:0"
+symbol = "✘ "
+
+[character]
+success_symbol = '[](fg:#33658A)'
+error_symbol = '[](fg:#EF6487)'
+vimcmd_symbol = '[](fg:#FCA17D)'
