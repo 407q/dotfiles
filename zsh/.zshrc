@@ -1,6 +1,6 @@
 #zmodload zsh/zprof #debug
 
-eval "$(sheldon source)"
+eval "$(sheldon --profile early source)"
 
 alias removegomi="find . \( -name '.DS_Store' -or -name '._*' \) -delete -print"
 alias ls="eza --icons --hyperlink"
@@ -19,5 +19,7 @@ autoload -Uz compinit
 _evalcache gh completion -s zsh
 
 _evalcache starship init zsh
+
+eval "$(sheldon --profile late source)"
 
 #zprof #debug

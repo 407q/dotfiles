@@ -16,9 +16,16 @@ shell = "zsh"
 
 [plugins.evalcache]
 github = "mroth/evalcache"
+profiles = ["early"]
+
+[plugins.zsh-completions]
+github = "zsh-users/zsh-completions"
+apply = ["fpath"]
+profiles = ["early"]
 
 [plugins.zsh-syntax-highlighting]
 github = "zsh-users/zsh-syntax-highlighting"
+profiles = ["late"]
 
 # For example:
 #
